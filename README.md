@@ -73,7 +73,27 @@ References: [n8n Webhook](https://docs.n8n.io/integrations/builtin/core-nodes/n8
 
 `.env.example` lists every setting. Development uses a random JWT signing key when none is configured, so restarting signs users out. For a persistent login across restarts, set `JWT_SECRET` to a randomly generated secret of at least 32 characters.
 
-For deployment, use a Node host with persistent disk and one application instance. Set `NODE_ENV=production`, a strong persistent `JWT_SECRET`, `APP_ORIGIN` to the public HTTPS origin, and `SEED_DEMO=false`. The server binds to loopback; place a TLS reverse proxy on the same host in front of it. Configure proxy trust deliberately if you need forwarded client IPs. Do not deploy this stateful Express server to static-only or Worker-only hosting. Back up the SQLite database consistently, including WAL state; do not copy a live database file alone.
+For deployment, use a Node host with persistent disk and one application instance. Set `NODE_ENV=production`, a strong persistent `JWT_SECRET`, `APP_ORIGIN` to the public HTTPS origin, and `SEED_DEMO=false` for real listings. The server uses the host's `HOST` or `IP` and `PORT`; production otherwise binds to `0.0.0.0`, while development stays on loopback. Set `TRUST_PROXY_HOPS=1` when the service sits behind the hosting provider's reverse proxy; keep it `0` for direct access. `GET /healthz` checks database availability without exposing account data. Render's `RENDER_EXTERNAL_URL` is accepted when `APP_ORIGIN` is absent. Do not deploy this stateful Express server to static-only or Worker-only hosting. Back up the SQLite database consistently, including WAL state; do not copy a live database file alone.
+
+### Free personal/demo hosting on alwaysdata
+
+The [Free plan](https://www.alwaysdata.com/en/offers/) includes 1 GB storage, 256 MB RAM and an `alwaysdata.net` website address. It is for personal/non-profit use; choose **Free**, not a paid plan's trial. Node.js 24 is supported. This is a small demo deployment, not a high-traffic recruitment service.
+
+1. Create a Free account and complete its verification. In **Environment → Node.js**, select **24**.
+2. In the account's SSH terminal, clone this repository into `~/pathway`, then run:
+
+   ```sh
+   cd ~/pathway
+   NODEJS_VERSION=24 npm ci --omit=dev --no-audit --no-fund
+   NODEJS_VERSION=24 npm run setup:hosting -- https://YOUR-ACCOUNT.alwaysdata.net --demo
+   ```
+
+   Replace `YOUR-ACCOUNT` with the assigned account name. `--demo` installs the 42 explicitly labeled sample openings; omit it for an empty marketplace. The setup generates a secret in a private `.env` and stores the database in `~/pathway-data/portal.sqlite` outside the checkout. It refuses to overwrite an existing `.env`.
+3. In **Web → Sites**, edit the default address: type **Node.js**, working directory `/home/YOUR-ACCOUNT/pathway`, command `node src/server.js`. Use Node.js **24**. The provider supplies the listen IP and port; do not copy the local `HOST=127.0.0.1` setting. Enable HTTPS redirection.
+4. Create the hosted administrator using the existing admin command in the account's SSH terminal. Use a new private password; local users/admin credentials are not uploaded. See the administrator section above.
+5. Verify `/healthz`, signup/login, and both account panels. Restart the hosted site and verify the same account still signs in. Configure Google Sheets and n8n using private environment values when ready; they are not enabled just by deploying.
+
+For code updates, pull the repository and restart the site while preserving `.env` and `~/pathway-data`. Never upload `.env`, `data/`, `node_modules/`, or service-account keys to GitHub. Hosting documentation: [Node.js configuration](https://help.alwaysdata.com/en/docs/web-hosting/languages/nodejs/configuration/).
 
 JWTs expire after eight hours. Logout clears the browser cookie; this starter does not have a server-side token revocation list. Email verification, password recovery, resume file uploads, and multi-instance deployment are outside this implementation. Resume URLs are links only and are never fetched by the server.
 

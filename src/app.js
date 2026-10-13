@@ -14,13 +14,27 @@ export function createApp(db, env = process.env, overrides = {}) {
   const app = express();
   const secret = env.JWT_SECRET || randomBytes(48).toString('hex');
   if (env.NODE_ENV === 'production' && (!env.JWT_SECRET || env.JWT_SECRET.length < 32)) throw new Error('Set a strong JWT_SECRET (at least 32 characters).');
+  const configuredOrigin = env.APP_ORIGIN || env.RENDER_EXTERNAL_URL;
+  if (env.NODE_ENV === 'production' && !configuredOrigin) throw new Error('Set APP_ORIGIN to the public HTTPS origin (Render supplies RENDER_EXTERNAL_URL automatically).');
+  const originUrl = new URL(configuredOrigin || 'http://localhost:3000');
+  if (!['http:','https:'].includes(originUrl.protocol) || originUrl.username || originUrl.password || originUrl.pathname !== '/' || originUrl.search || originUrl.hash || (env.NODE_ENV === 'production' && originUrl.protocol !== 'https:')) throw new Error('APP_ORIGIN must be an HTTPS origin in production, without a path, query, or credentials.');
+  const allowedOrigin = originUrl.origin;
+  // Only trust the configured number of proxy hops; never trust all forwarded addresses.
+  const proxyHops = env.TRUST_PROXY_HOPS || '0';
+  if (!/^\d+$/.test(proxyHops) || Number(proxyHops) > 10) throw new Error('TRUST_PROXY_HOPS must be an integer from 0 to 10.');
+  app.set('trust proxy', Number(proxyHops));
   const integrations = overrides.integrations || createIntegrations(db, env);
   app.locals.integrations = integrations;
   app.use(helmet({ contentSecurityPolicy: { directives: { styleSrc:["'self'","'unsafe-inline'",'https://fonts.googleapis.com'], fontSrc:["'self'",'https://fonts.gstatic.com'], upgradeInsecureRequests:env.NODE_ENV === 'production' ? [] : null } } }), express.json({ limit: '32kb' }), cookieParser());
+  app.get('/healthz',(req,res)=> {
+    res.set('Cache-Control','no-store');
+    try { db.prepare('SELECT 1').get(); res.json({ok:true}); }
+    catch { res.status(503).json({ok:false}); }
+  });
   app.use('/api', rateLimit({ windowMs: 60000, limit: 180, standardHeaders: 'draft-8', legacyHeaders: false }));
   app.use('/api', (req,res,next) => {
     res.set('Cache-Control','no-store');
-    if (!['GET','HEAD','OPTIONS'].includes(req.method) && (req.headers['x-requested-with'] !== 'Pathway' || (req.headers.origin && req.headers.origin !== (env.APP_ORIGIN || 'http://localhost:3000')))) return res.status(403).json({ error: 'Request origin not allowed.' });
+    if (!['GET','HEAD','OPTIONS'].includes(req.method) && (req.headers['x-requested-with'] !== 'Pathway' || (req.headers.origin && req.headers.origin !== allowedOrigin))) return res.status(403).json({ error: 'Request origin not allowed.' });
     next();
   });
   const authLimit = rateLimit({ windowMs: 15*60000, limit: 30, message: { error: 'Too many attempts. Please try again later.' } });
