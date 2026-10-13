@@ -89,7 +89,7 @@ The [Free plan](https://www.alwaysdata.com/en/offers/) includes 1 GB storage, 25
    ```
 
    Replace `YOUR-ACCOUNT` with the assigned account name. `--demo` installs the 42 explicitly labeled sample openings; omit it for an empty marketplace. The setup generates a secret in a private `.env` and stores the database in `~/pathway-data/portal.sqlite` outside the checkout. It refuses to overwrite an existing `.env`.
-3. In **Web → Sites**, edit the default address: type **Node.js**, working directory `/home/YOUR-ACCOUNT/pathway`, command `node src/server.js`. Use Node.js **24**. The provider supplies the listen IP and port; do not copy the local `HOST=127.0.0.1` setting. Enable HTTPS redirection.
+3. In **Web → Sites**, edit the default address: type **Node.js**, working directory `pathway` (relative to the `/home/YOUR-ACCOUNT/` prefix shown by the form), command `node src/server.js`. Use Node.js **24**. The provider supplies the listen IP and port; do not copy the local `HOST=127.0.0.1` setting. Enable HTTPS redirection.
 4. Create the hosted administrator using the existing admin command in the account's SSH terminal. Use a new private password; local users/admin credentials are not uploaded. See the administrator section above.
 5. Verify `/healthz`, signup/login, and both account panels. Restart the hosted site and verify the same account still signs in. Configure Google Sheets and n8n using private environment values when ready; they are not enabled just by deploying.
 
